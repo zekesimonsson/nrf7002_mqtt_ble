@@ -107,14 +107,14 @@ static int topics_prefix(void)
 {
 	int len;
 
-	len = snprintk(pub_topic, sizeof(pub_topic), "%s/%s", client_id,
+	len = snprintk(pub_topic, sizeof(pub_topic), "%s",
 		       CONFIG_MQTT_SAMPLE_TRANSPORT_PUBLISH_TOPIC);
 	if ((len < 0) || (len >= sizeof(pub_topic))) {
 		LOG_ERR("Publish topic buffer too small");
 		return -EMSGSIZE;
 	}
 
-	len = snprintk(sub_topic, sizeof(sub_topic), "%s/%s", client_id,
+	len = snprintk(sub_topic, sizeof(sub_topic), "%s",
 		       CONFIG_MQTT_SAMPLE_TRANSPORT_SUBSCRIBE_TOPIC);
 	if ((len < 0) || (len >= sizeof(sub_topic))) {
 		LOG_ERR("Subscribe topic buffer too small");
@@ -189,6 +189,10 @@ static void connect_work_fn(struct k_work *work)
 		.hostname.size = strlen(CONFIG_MQTT_SAMPLE_TRANSPORT_BROKER_HOSTNAME),
 		.device_id.ptr = client_id,
 		.device_id.size = strlen(client_id),
+		.user_name.ptr = "semcon",
+		.user_name.size = strlen("semcon"),
+		.password.ptr = "iot_cop123!",
+		.password.size = strlen("iot_cop123!"),
 	};
 
 	err = client_id_get(client_id, sizeof(client_id));

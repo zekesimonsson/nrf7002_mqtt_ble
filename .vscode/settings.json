@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "C:/Source/MQTT_BLE/nrf7002_mqtt_ble/MQTT_BLE_CLIENT",
+    "nrf-connect.applications": [
+        "${workspaceFolder}\\MQTT_BLE_CLIENT"
+    ]
+}
