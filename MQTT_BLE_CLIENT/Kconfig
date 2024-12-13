@@ -12,6 +12,16 @@ config MQTT_SAMPLE_PAYLOAD_CHANNEL_STRING_MAX_SIZE
 	help
 	  Maximum size of the string included messages that are sent over the payload channel.
 
+config MQTT_BROKER_USERNAME
+    string "MQTT Broker Username"
+    help
+      Specifies the username used to connect to the MQTT broker.
+
+config MQTT_BROKER_PASSWORD
+    string "MQTT Broker Password"
+    help
+      Specifies the password used to connect to the MQTT broker.
+
 rsource "src/modules/trigger/Kconfig.trigger"
 rsource "src/modules/sampler/Kconfig.sampler"
 rsource "src/modules/network/Kconfig.network"

@@ -189,10 +189,10 @@ static void connect_work_fn(struct k_work *work)
 		.hostname.size = strlen(CONFIG_MQTT_SAMPLE_TRANSPORT_BROKER_HOSTNAME),
 		.device_id.ptr = client_id,
 		.device_id.size = strlen(client_id),
-		.user_name.ptr = "semcon",
-		.user_name.size = strlen("semcon"),
-		.password.ptr = "iot_cop123!",
-		.password.size = strlen("iot_cop123!"),
+		.user_name.ptr = CONFIG_MQTT_BROKER_USERNAME,
+		.user_name.size = strlen(CONFIG_MQTT_BROKER_USERNAME),
+		.password.ptr = CONFIG_MQTT_BROKER_PASSWORD,
+		.password.size = strlen(CONFIG_MQTT_BROKER_PASSWORD),
 	};
 
 	err = client_id_get(client_id, sizeof(client_id));
