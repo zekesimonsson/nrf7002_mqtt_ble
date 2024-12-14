@@ -21,3 +21,6 @@ add_subdirectory(src/modules/error)
 
 # Optional modules
 add_subdirectory_ifdef(CONFIG_MQTT_SAMPLE_LED src/modules/led)
+
+# NORDIC SDK APP START
+target_sources(app PRIVATE src/main.c src/ble/ble_client.c)
