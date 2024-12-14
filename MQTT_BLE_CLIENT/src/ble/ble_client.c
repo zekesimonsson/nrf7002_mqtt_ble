@@ -1,4 +1,3 @@
-
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/bluetooth.h>
 #include <bluetooth/scan.h>
@@ -10,6 +9,8 @@
 // Forward declaration of connection callbacks
 static void connected(struct bt_conn *conn, uint8_t err);
 static void disconnected(struct bt_conn *conn, uint8_t reason);
+static uint8_t discover_func(struct bt_conn *conn, const struct bt_gatt_attr *attr, struct bt_gatt_discover_params *params);
+void start_service_discovery(struct bt_conn *conn);
 
 // Define connection callbacks
 static struct bt_conn_cb conn_callbacks = {
@@ -19,15 +20,20 @@ static struct bt_conn_cb conn_callbacks = {
 
 static struct bt_conn *default_conn;
 
+// Discovery parameters
+static struct bt_gatt_discover_params discover_params;
+
 // Called when device connects
 static void connected(struct bt_conn *conn, uint8_t err) {
     if (err) {
         printk("Connection failed (err %u)\n", err);
-        default_conn = NULL;
         return;
     }
-    default_conn = bt_conn_ref(conn);
-    printk("Connected to target device\n");
+
+    printk("Connected\n");
+
+    // Start GATT service discovery
+    start_service_discovery(conn);
 }
 
 // Called when device disconnects
@@ -36,6 +42,34 @@ static void disconnected(struct bt_conn *conn, uint8_t reason) {
     if (default_conn) {
         bt_conn_unref(default_conn);
         default_conn = NULL;
+    }
+}
+
+// Callback for discovery results
+static uint8_t discover_func(struct bt_conn *conn,
+                             const struct bt_gatt_attr *attr,
+                             struct bt_gatt_discover_params *params) {
+    if (!attr) {
+        printk("Discovery complete\n");
+        return BT_GATT_ITER_STOP;
+    }
+
+    printk("[ATTRIBUTE] handle 0x%04x\n", attr->handle);
+    return BT_GATT_ITER_CONTINUE;
+}
+
+void start_service_discovery(struct bt_conn *conn) {
+    discover_params.uuid = NULL; // Discover all services
+    discover_params.start_handle = 0x0001;
+    discover_params.end_handle = 0xffff;
+    discover_params.type = BT_GATT_DISCOVER_PRIMARY;
+    discover_params.func = discover_func;
+
+    int err = bt_gatt_discover(conn, &discover_params);
+    if (err) {
+        printk("GATT discovery failed (err %d)\n", err);
+    } else {
+        printk("GATT discovery started\n");
     }
 }
 
