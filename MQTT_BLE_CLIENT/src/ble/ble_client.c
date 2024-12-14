@@ -7,6 +7,38 @@
 #include <string.h>
 #include "ble_client.h"
 
+// Forward declaration of connection callbacks
+static void connected(struct bt_conn *conn, uint8_t err);
+static void disconnected(struct bt_conn *conn, uint8_t reason);
+
+// Define connection callbacks
+static struct bt_conn_cb conn_callbacks = {
+    .connected = connected,
+    .disconnected = disconnected,
+};
+
+static struct bt_conn *default_conn;
+
+// Called when device connects
+static void connected(struct bt_conn *conn, uint8_t err) {
+    if (err) {
+        printk("Connection failed (err %u)\n", err);
+        default_conn = NULL;
+        return;
+    }
+    default_conn = bt_conn_ref(conn);
+    printk("Connected to target device\n");
+}
+
+// Called when device disconnects
+static void disconnected(struct bt_conn *conn, uint8_t reason) {
+    printk("Disconnected (reason %u)\n", reason);
+    if (default_conn) {
+        bt_conn_unref(default_conn);
+        default_conn = NULL;
+    }
+}
+
 static bool ad_data_parse_callback(struct bt_data *data, void *user_data) {
     bool *target_found = (bool *)user_data;
 
@@ -35,8 +67,30 @@ static void device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t adv_type
     bt_data_parse(ad, ad_data_parse_callback, &target_found);
 
     if (target_found) {
-        bt_le_scan_stop();
-        printk("Target device found. Stopping scan.\n");
+        printk("Target device found: %s\n", addr_str);
+
+        // Stop scanning
+        int err = bt_le_scan_stop();
+        if (err) {
+            printk("Failed to stop scanning (err %d)\n", err);
+            return;
+        }
+
+        // Attempt to connect
+        struct bt_conn_le_create_param create_param = BT_CONN_LE_CREATE_PARAM_INIT(
+            BT_CONN_LE_OPT_NONE,
+            BT_GAP_SCAN_FAST_INTERVAL,
+            BT_GAP_SCAN_FAST_WINDOW);
+
+        struct bt_le_conn_param *conn_param = BT_LE_CONN_PARAM_DEFAULT;
+
+        err = bt_conn_le_create(addr, &create_param, conn_param, &default_conn);
+        if (err) {
+            printk("Create connection failed (err %d)\n", err);
+            return;
+        }
+
+        printk("Connection initiated\n");
     }
 }
 
@@ -63,4 +117,7 @@ void ble_init(void) {
         return;
     }
     printk("Bluetooth initialized\n");
+
+    // Register connection callbacks
+    bt_conn_cb_register(&conn_callbacks);
 }
