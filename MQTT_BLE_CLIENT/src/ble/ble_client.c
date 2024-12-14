@@ -9,7 +9,6 @@
 // Forward declaration of connection callbacks
 static void connected(struct bt_conn *conn, uint8_t err);
 static void disconnected(struct bt_conn *conn, uint8_t reason);
-static uint8_t discover_func(struct bt_conn *conn, const struct bt_gatt_attr *attr, struct bt_gatt_discover_params *params);
 void start_service_discovery(struct bt_conn *conn);
 
 // Define connection callbacks
@@ -45,16 +44,54 @@ static void disconnected(struct bt_conn *conn, uint8_t reason) {
     }
 }
 
-// Callback for discovery results
-static uint8_t discover_func(struct bt_conn *conn,
-                             const struct bt_gatt_attr *attr,
-                             struct bt_gatt_discover_params *params) {
+static uint16_t service_start_handle, service_end_handle;
+
+// Callback function for characteristic discovery
+static uint8_t discover_characteristics(struct bt_conn *conn,
+                                        const struct bt_gatt_attr *attr,
+                                        struct bt_gatt_discover_params *params) {
     if (!attr) {
-        printk("Discovery complete\n");
+        printk("Characteristic discovery complete\n");
         return BT_GATT_ITER_STOP;
     }
 
-    printk("[DISCOVERY] Attribute found at handle 0x%04x\n", attr->handle);
+    if (params->type == BT_GATT_DISCOVER_CHARACTERISTIC && attr->user_data) {
+        const struct bt_gatt_chrc *chrc = attr->user_data;
+
+        char uuid_str[37];
+        bt_uuid_to_str(chrc->uuid, uuid_str, sizeof(uuid_str));
+        printk("Characteristic UUID: %s\n", uuid_str);
+        printk("  Properties: 0x%02x\n", chrc->properties);
+        printk("  Value handle: 0x%04x\n", chrc->value_handle);
+    }
+
+    return BT_GATT_ITER_CONTINUE;
+}
+
+// Function to start characteristic discovery for a given service
+void start_characteristic_discovery(struct bt_conn *conn, uint16_t start_handle, uint16_t end_handle) {
+    discover_params.uuid = NULL; // Discover all characteristics
+    discover_params.start_handle = start_handle;
+    discover_params.end_handle = end_handle;
+    discover_params.type = BT_GATT_DISCOVER_CHARACTERISTIC;
+    discover_params.func = discover_characteristics;
+
+    int err = bt_gatt_discover(conn, &discover_params);
+    if (err) {
+        printk("Failed to start characteristic discovery (err %d)\n", err);
+    } else {
+        printk("Characteristic discovery started\n");
+    }
+}
+
+// Callback function for service discovery
+static uint8_t discover_services(struct bt_conn *conn,
+                                  const struct bt_gatt_attr *attr,
+                                  struct bt_gatt_discover_params *params) {
+    if (!attr) {
+        printk("Service discovery complete\n");
+        return BT_GATT_ITER_STOP;
+    }
 
     if (params->type == BT_GATT_DISCOVER_PRIMARY && attr->user_data) {
         const struct bt_gatt_service_val *svc = attr->user_data;
@@ -62,36 +99,33 @@ static uint8_t discover_func(struct bt_conn *conn,
         char uuid_str[37];
         bt_uuid_to_str(svc->uuid, uuid_str, sizeof(uuid_str));
         printk("Primary service UUID: %s\n", uuid_str);
-        printk("Service start handle: 0x%04x\n", attr->handle);
-        printk("Service end handle: 0x%04x\n", svc->end_handle);
-    } else if (params->type == BT_GATT_DISCOVER_CHARACTERISTIC && attr->user_data) {
-        const struct bt_gatt_chrc *chrc = attr->user_data;
+        printk("Service handles: start 0x%04x, end 0x%04x\n", attr->handle, svc->end_handle);
 
-        char uuid_str[37];
-        bt_uuid_to_str(chrc->uuid, uuid_str, sizeof(uuid_str));
-        printk("Characteristic UUID: %s\n", uuid_str);
-        printk("Characteristic properties: 0x%02x\n", chrc->properties);
-    } else if (params->type == BT_GATT_DISCOVER_DESCRIPTOR) {
-        char uuid_str[37];
-        bt_uuid_to_str(attr->uuid, uuid_str, sizeof(uuid_str));
-        printk("Descriptor UUID: %s\n", uuid_str);
+        // Save service handles for characteristic discovery
+        service_start_handle = attr->handle;
+        service_end_handle = svc->end_handle;
+
+        // Start discovering characteristics for this service
+        start_characteristic_discovery(conn, service_start_handle, service_end_handle);
     }
+
     return BT_GATT_ITER_CONTINUE;
 }
 
+// Function to start service discovery
 void start_service_discovery(struct bt_conn *conn) {
     static struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1234);
     discover_params.uuid = &service_uuid.uuid;
     discover_params.start_handle = 0x0001;
     discover_params.end_handle = 0xffff;
     discover_params.type = BT_GATT_DISCOVER_PRIMARY;
-    discover_params.func = discover_func;
+    discover_params.func = discover_services;
 
     int err = bt_gatt_discover(conn, &discover_params);
     if (err) {
-        printk("GATT discovery failed (err %d)\n", err);
+        printk("Failed to start service discovery (err %d)\n", err);
     } else {
-        printk("GATT discovery started\n");
+        printk("Service discovery started\n");
     }
 }
 
