@@ -54,12 +54,34 @@ static uint8_t discover_func(struct bt_conn *conn,
         return BT_GATT_ITER_STOP;
     }
 
-    printk("[ATTRIBUTE] handle 0x%04x\n", attr->handle);
+    printk("[DISCOVERY] Attribute found at handle 0x%04x\n", attr->handle);
+
+    if (params->type == BT_GATT_DISCOVER_PRIMARY && attr->user_data) {
+        const struct bt_gatt_service_val *svc = attr->user_data;
+
+        char uuid_str[37];
+        bt_uuid_to_str(svc->uuid, uuid_str, sizeof(uuid_str));
+        printk("Primary service UUID: %s\n", uuid_str);
+        printk("Service start handle: 0x%04x\n", attr->handle);
+        printk("Service end handle: 0x%04x\n", svc->end_handle);
+    } else if (params->type == BT_GATT_DISCOVER_CHARACTERISTIC && attr->user_data) {
+        const struct bt_gatt_chrc *chrc = attr->user_data;
+
+        char uuid_str[37];
+        bt_uuid_to_str(chrc->uuid, uuid_str, sizeof(uuid_str));
+        printk("Characteristic UUID: %s\n", uuid_str);
+        printk("Characteristic properties: 0x%02x\n", chrc->properties);
+    } else if (params->type == BT_GATT_DISCOVER_DESCRIPTOR) {
+        char uuid_str[37];
+        bt_uuid_to_str(attr->uuid, uuid_str, sizeof(uuid_str));
+        printk("Descriptor UUID: %s\n", uuid_str);
+    }
     return BT_GATT_ITER_CONTINUE;
 }
 
 void start_service_discovery(struct bt_conn *conn) {
-    discover_params.uuid = NULL; // Discover all services
+    static struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x1234);
+    discover_params.uuid = &service_uuid.uuid;
     discover_params.start_handle = 0x0001;
     discover_params.end_handle = 0xffff;
     discover_params.type = BT_GATT_DISCOVER_PRIMARY;
