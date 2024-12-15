@@ -11,6 +11,8 @@ static void connected(struct bt_conn *conn, uint8_t err);
 static void disconnected(struct bt_conn *conn, uint8_t reason);
 void start_service_discovery(struct bt_conn *conn);
 
+static uint16_t target_characteristic_handle = 0;
+
 // Define connection callbacks
 static struct bt_conn_cb conn_callbacks = {
     .connected = connected,
@@ -63,6 +65,11 @@ static uint8_t discover_characteristics(struct bt_conn *conn,
         printk("Characteristic UUID: %s\n", uuid_str);
         printk("  Properties: 0x%02x\n", chrc->properties);
         printk("  Value handle: 0x%04x\n", chrc->value_handle);
+
+//        if (chrc->properties & BT_GATT_CHRC_WRITE) {
+            target_characteristic_handle = chrc->value_handle;  // Store handle for writing
+            printk("Writable characteristic found: 0x%04x\n", target_characteristic_handle);
+//        }
     }
 
     return BT_GATT_ITER_CONTINUE;
@@ -70,7 +77,8 @@ static uint8_t discover_characteristics(struct bt_conn *conn,
 
 // Function to start characteristic discovery for a given service
 void start_characteristic_discovery(struct bt_conn *conn, uint16_t start_handle, uint16_t end_handle) {
-    discover_params.uuid = NULL; // Discover all characteristics
+    static struct bt_uuid_16 service_uuid = BT_UUID_INIT_16(0x0001);
+    discover_params.uuid = &service_uuid.uuid; // Discover all characteristics
     discover_params.start_handle = start_handle;
     discover_params.end_handle = end_handle;
     discover_params.type = BT_GATT_DISCOVER_CHARACTERISTIC;
@@ -210,4 +218,49 @@ void ble_init(void) {
 
     // Register connection callbacks
     bt_conn_cb_register(&conn_callbacks);
+}
+
+// Callback function when the write operation completes
+static void write_complete_callback(struct bt_conn *conn, uint8_t err, struct bt_gatt_write_params *user_data) {
+    if (err) {
+        printk("Write failed (err %d)\n", err);
+    } else {
+        printk("Write successful\n");
+    }
+}
+
+// Define the write parameters
+static struct bt_gatt_write_params write_params = {
+    .handle = 0,   // The handle for the writable characteristic
+    .offset = 0,                              // Start writing from the beginning
+    .data = NULL,                             // Placeholder for data to write (set later)
+    .length = 0,                              // Data length
+    .func = write_complete_callback           // Callback when write is complete
+};
+
+
+
+// Function to write to the characteristic
+void write_to_characteristic(struct bt_conn *conn, uint8_t *data, size_t length) {
+    if (target_characteristic_handle == 0) {
+        printk("No writable characteristic found\n");
+        return;
+    }
+
+    // Set the data to be written
+    write_params.handle = target_characteristic_handle;
+    write_params.data = data;
+    write_params.length = length;
+
+    int err = bt_gatt_write(conn, &write_params);
+    if (err) {
+        printk("Failed to initiate write operation (err %d)\n", err);
+    } else {
+        printk("Write operation initiated\n");
+    }
+}
+
+void write_to_ble_0001(uint8_t *data, size_t length)
+{
+    write_to_characteristic(default_conn, data, length);
 }

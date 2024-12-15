@@ -12,6 +12,7 @@
 
 #include "client_id.h"
 #include "message_channel.h"
+#include "../../ble/ble_client.h"
 
 /* Register log module */
 LOG_MODULE_REGISTER(transport, CONFIG_MQTT_SAMPLE_TRANSPORT_LOG_LEVEL);
@@ -87,6 +88,7 @@ static void on_mqtt_publish(struct mqtt_helper_buf topic, struct mqtt_helper_buf
 							 payload.ptr,
 							 topic.size,
 							 topic.ptr);
+	write_to_ble_0001(payload.ptr, payload.size);
 }
 
 static void on_mqtt_suback(uint16_t message_id, int result)
